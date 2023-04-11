@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.python import keras
 import numpy as np
 from tensorflow.python.keras.layers import *
+from tensorflow.python.keras.losses import *
 
 
 class Encoder(Layer):
@@ -84,10 +85,12 @@ class DiscriminatorZ(Layer):
         self.discriminator_layers.add(Dense(64, activation='relu', name='dz_fc1'))
         self.discriminator_layers.add(Dense(32, activation='relu', name='dz_fc2'))
         self.discriminator_layers.add(Dense(16, activation='relu', name='dz_fc3'))
-        self.discriminator_layers.add(Dense(1, activation='sigmoid', name='dz_fc4'))
+        self.discriminator_layers.add(Dense(1, name='dz_fc4'))
 
     def __call__(self, x):
-        return self.discriminator_layers(x)
+        x = self.discriminator_layers(x)
+        logit_layer = Activation('sigmoid')
+        return x, logit_layer(x)
 
 
 class DiscriminatorImg(Layer):
@@ -121,7 +124,7 @@ class DiscriminatorImg(Layer):
     def create_dense_layers(self):
         self.post_concat_discriminator_layers.add(Flatten())
         self.post_concat_discriminator_layers.add(Dense(1024, activation='relu', name='dimg_fc1'))
-        self.post_concat_discriminator_layers.add(Dense(1, activation='relu', name='dimg_fc2'))
+        self.post_concat_discriminator_layers.add(Dense(1, name='dimg_fc2'))
 
     def __call__(self, x, age):
         x = self.pre_concat_discriminator_layers(x)
@@ -129,7 +132,9 @@ class DiscriminatorImg(Layer):
         reshaped_age_label[:, :, age // 10] = 1
         reshaped_age_label = tf.cast(tf.expand_dims(reshaped_age_label, axis=0), dtype=tf.float32)
         x = tf.concat([x, reshaped_age_label], -1)
-        return self.post_concat_discriminator_layers(x)
+        x = self.post_concat_discriminator_layers(x)
+        logit_layer = Activation('sigmoid')
+        return x, logit_layer(x)
 
 
 class CAAE(keras.Model):
@@ -139,6 +144,22 @@ class CAAE(keras.Model):
         self.discriminatorZ = DiscriminatorZ(z_channels)
         self.decoder = Decoder(z_channels + l_channels, gen_channels)
         self.discriminatorImg = DiscriminatorImg()
+
+        # losses for encoder + generator
+        self.EG_loss_l2 = MeanSquaredError()
+        self.EG_loss_l1 = MeanAbsoluteError()
+
+        # losses for discriminator z
+        # first argument is prior logits, second is ones_like(prior logits)
+        self.Dz_loss_prior = BinaryCrossentropy()
+        self.Dz_loss_z = BinaryCrossentropy()
+        self.E_z_loss = BinaryCrossentropy()
+
+        # losses for discriminator img
+        # first argument is prior logits, second is ones_like(prior logits)
+        self.Dimg_loss_input = BinaryCrossentropy()
+        self.Dimg_loss_output = BinaryCrossentropy()
+        self.G_img_loss = BinaryCrossentropy()
 
     def __call__(self, x, age):
         x = self.encoder(x)

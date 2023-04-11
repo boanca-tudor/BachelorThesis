@@ -1,24 +1,28 @@
 from model import *
+from utils import *
 import tensorflow as tf
-import cv2
+import numpy as np
+import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     model = CAAE(100, 10, 1024)
-    x = cv2.imread('test.jpg', cv2.IMREAD_COLOR)
-    x = cv2.resize(x, (128, 128))
-    x = tf.expand_dims(x, axis=0)
-    x /= 255
+    base_dir = 'data/UTKFace/'
+    images = list_full_paths(base_dir)
+    np.random.shuffle(images)
+    images = np.random.choice(images, 64)
+    x = read_batch(images)
+    fig = plt.figure(figsize=(10, 10))
 
-    print(x)
-    cv2.imshow('image', tf.reshape(x, (128, 128, 3)).numpy())
-    cv2.waitKey(0)
-    y, dz, dimg = model(x, 50)
+    index = 1
+    for image in x:
+        fig.add_subplot(8, 8, index)
+        plt.imshow(image.numpy())
+        index += 1
 
-    y = tf.keras.utils.normalize(y)
-    y = tf.reshape(y, (128, 128, 3))
-    print(y)
+    plt.show()
 
-    cv2.imshow('image', y.numpy())
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
+    # x = tf.expand_dims(x, axis=0)
+    # y, dz, dimg = model(x, 50)
+    #
+    # y = tf.keras.utils.normalize(y)
+    # print(y)
