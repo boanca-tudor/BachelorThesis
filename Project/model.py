@@ -1,11 +1,17 @@
+import datetime
+
 import tensorflow as tf
 from tensorflow.python import keras
 import numpy as np
 from tensorflow.python.keras.layers import *
 from tensorflow.python.keras.losses import *
+from tensorflow.python.keras.optimizer_v2.adam import *
+from utils import *
+import time
+import matplotlib.pyplot as plt
 
 
-class Encoder(Layer):
+class Encoder(keras.Model):
     def __init__(self, z_channels):
         super(Encoder, self).__init__()
         self.encoder_layers = keras.Sequential(name="e_layers")
@@ -36,7 +42,7 @@ class Encoder(Layer):
         self.encoder_layers.add(Dense(z_channels, activation='tanh', name='e_fc1'))
 
 
-class Decoder(Layer):
+class Decoder(keras.Model):
     def __init__(self, zl_channels, gen_channels):
         super(Decoder, self).__init__()
         self.decoder_layers = keras.Sequential(name="g_layers")
@@ -50,7 +56,7 @@ class Decoder(Layer):
         return self.decoder_layers(x)
 
     def create_dense(self, gen_channels, zl_channels):
-        self.decoder_layers.add(InputLayer(input_shape=(1, zl_channels)))
+        self.decoder_layers.add(InputLayer(input_shape=zl_channels))
         self.decoder_layers.add(Dense(gen_channels * 4 ** 2, activation='relu', name='g_fc1'))
         self.decoder_layers.add(Reshape((4, 4, gen_channels)))
 
@@ -71,7 +77,7 @@ class Decoder(Layer):
                                                 name='g_conv7'))
 
 
-class DiscriminatorZ(Layer):
+class DiscriminatorZ(keras.Model):
     def __init__(self, z_channels):
         super(DiscriminatorZ, self).__init__()
         self.discriminator_layers = keras.Sequential(name="dz_layers")
@@ -93,7 +99,7 @@ class DiscriminatorZ(Layer):
         return x, logit_layer(x)
 
 
-class DiscriminatorImg(Layer):
+class DiscriminatorImg(keras.Model):
     def __init__(self):
         super(DiscriminatorImg, self).__init__()
         self.pre_concat_discriminator_layers = keras.Sequential(name='dimg_preconcat_layers')
@@ -126,11 +132,10 @@ class DiscriminatorImg(Layer):
         self.post_concat_discriminator_layers.add(Dense(1024, activation='relu', name='dimg_fc1'))
         self.post_concat_discriminator_layers.add(Dense(1, name='dimg_fc2'))
 
-    def __call__(self, x, age):
+    def __call__(self, x, ages):
         x = self.pre_concat_discriminator_layers(x)
-        reshaped_age_label = -np.ones(shape=(64, 64, 10))
-        reshaped_age_label[:, :, age // 10] = 1
-        reshaped_age_label = tf.cast(tf.expand_dims(reshaped_age_label, axis=0), dtype=tf.float32)
+        reshaped_age_label = reshape_age_tensor_to_4d(ages, 64, 64)
+        reshaped_age_label = tf.cast(reshaped_age_label, dtype=tf.float32)
         x = tf.concat([x, reshaped_age_label], -1)
         x = self.post_concat_discriminator_layers(x)
         logit_layer = Activation('sigmoid')
@@ -140,34 +145,178 @@ class DiscriminatorImg(Layer):
 class CAAE(keras.Model):
     def __init__(self, z_channels, l_channels, gen_channels):
         super().__init__()
+        self.z_channels = z_channels
+        self.l_channels = l_channels
+        self.gen_channels = gen_channels
         self.encoder = Encoder(z_channels)
         self.discriminatorZ = DiscriminatorZ(z_channels)
         self.decoder = Decoder(z_channels + l_channels, gen_channels)
         self.discriminatorImg = DiscriminatorImg()
 
-        # losses for encoder + generator
-        self.EG_loss_l2 = MeanSquaredError()
-        self.EG_loss_l1 = MeanAbsoluteError()
+        # losses
+        self.loss_l2 = MeanSquaredError()
+        self.loss_l1 = MeanAbsoluteError()
+        self.loss_bce = BinaryCrossentropy()
 
-        # losses for discriminator z
-        # first argument is prior logits, second is ones_like(prior logits)
-        self.Dz_loss_prior = BinaryCrossentropy()
-        self.Dz_loss_z = BinaryCrossentropy()
-        self.E_z_loss = BinaryCrossentropy()
+        # optimizers
+        self.eg_optimizer = Adam(1e-4)
+        self.dz_optimizer = Adam(1e-4)
+        self.dimg_optimizer = Adam(1e-4)
 
-        # losses for discriminator img
-        # first argument is prior logits, second is ones_like(prior logits)
-        self.Dimg_loss_input = BinaryCrossentropy()
-        self.Dimg_loss_output = BinaryCrossentropy()
-        self.G_img_loss = BinaryCrossentropy()
+        self.eg_tracker = keras.metrics.Mean(name='eg_loss')
+        self.dz_tracker = keras.metrics.Mean(name='dz_loss')
+        self.dimg_tracker = keras.metrics.Mean(name='dimg_loss')
 
-    def __call__(self, x, age):
+    def eval(self, args):
+        x = args[0]
+        age = args[1]
         x = self.encoder(x)
-        dz = self.discriminatorZ(x)
-        age_label = -np.ones((1, 10))
-        age_index = age // 10
-        age_label[0, age_index] = 1
+        age_label = tf.expand_dims(create_age_tensor(age), axis=0)
         x = tf.concat([x, age_label], 1)
         x = self.decoder(x)
-        dimg = self.discriminatorImg(x, age)
-        return x, dz, dimg
+        return x
+
+    # data is image batch + labels
+    @tf.function
+    def train_step(self, data, loss_weights=(0, 0.0001, 0.0001)):
+        images = data[0]
+        labels = data[1]
+
+        with tf.GradientTape() as eg_tape, tf.GradientTape() as dz_tape, tf.GradientTape() as dimg_tape:
+            z_images = self.encoder(images)
+
+            zl_images = tf.concat([z_images, labels], 1)
+            generated = self.decoder(zl_images)
+
+            # input/output loss
+            eg_loss = self.loss_l2(images, generated)
+            # total variance loss
+            tv_loss = loss_weights[0] * (self.loss_l1(generated[:, :, :, :-1], generated[:, :, :, 1:]) +
+                                         self.loss_l1(generated[:, :, :-1, :], generated[:, :, 1:, :]))
+
+            # discriminatorZ loss
+            z_prior = tf.random.uniform(z_images.shape)
+            dz_prior, dz_prior_logits = self.discriminatorZ(z_prior)
+            dz, dz_logits = self.discriminatorZ(z_images)
+            dz_loss_prior = self.loss_bce(dz_prior_logits, tf.ones_like(dz_prior_logits))
+            dz_loss = self.loss_bce(dz_logits, tf.zeros_like(dz_logits))
+            dz_total_loss = dz_loss + dz_loss_prior
+
+            # discriminatorZ/encoder loss
+            ez_loss = loss_weights[1] * self.loss_bce(dz_logits, tf.ones_like(dz_logits))
+
+            # discriminatorImg loss
+            dimg_input, dimg_input_logits = self.discriminatorImg(images, labels)
+            dimg_output, dimg_output_logits = self.discriminatorImg(generated, labels)
+
+            dimg_input_loss = self.loss_bce(dimg_input_logits, tf.ones_like(dimg_input_logits))
+            dimg_output_loss = self.loss_bce(dimg_output_logits, tf.zeros_like(dimg_output_logits))
+            dimg_total_loss = dimg_input_loss + dimg_output_loss
+
+            # discriminatorImg/generator loss
+            dg_loss = loss_weights[2] * self.loss_bce(dimg_output_logits, tf.ones_like(dimg_output_logits))
+
+            eg_total_loss = eg_loss + dg_loss + ez_loss + tv_loss
+
+        eg_gradients = eg_tape.gradient(eg_total_loss,
+                                        self.encoder.trainable_variables + self.decoder.trainable_variables)
+        dz_gradient = dz_tape.gradient(dz_total_loss,
+                                       self.discriminatorZ.trainable_variables)
+        dimg_gradient = dimg_tape.gradient(dimg_total_loss,
+                                           self.discriminatorImg.trainable_variables)
+
+        self.eg_optimizer.apply_gradients(zip(eg_gradients,
+                                          self.encoder.trainable_variables + self.decoder.trainable_variables))
+        self.dz_optimizer.apply_gradients(zip(dz_gradient,
+                                          self.discriminatorZ.trainable_variables))
+        self.dimg_optimizer.apply_gradients(zip(dimg_gradient,
+                                            self.discriminatorImg.trainable_variables))
+
+        self.eg_tracker.update_state(eg_total_loss)
+        self.dz_tracker.update_state(dz_total_loss)
+        self.dimg_tracker.update_state(dimg_total_loss)
+
+    def train(self, epochs, dataset_path, batch_size, save=True):
+        image_paths = list_full_paths(dataset_path)
+
+        eg_losses = []
+        dz_losses = []
+        dimg_losses = []
+
+        checkpoint = tf.train.Checkpoint(
+            encoder=self.encoder,
+            decoder=self.decoder,
+            discriminatorZ=self.discriminatorZ,
+            discriminatorImg=self.discriminatorImg,
+            eg_optimizer=self.eg_optimizer,
+            dz_optimizer=self.dz_optimizer,
+            dimg_optimizer=self.dimg_optimizer,
+        )
+
+        for epoch in range(epochs):
+            start = time.time()
+            np.random.shuffle(image_paths)
+            starting_index = 0
+            ending_index = batch_size
+            while ending_index <= len(image_paths):
+                images, ages = read_images(image_paths[starting_index: ending_index])
+                print(f'{epoch + 1} : {starting_index} - {ending_index}')
+                self.train_step((tf.convert_to_tensor(images), tf.convert_to_tensor(ages)))
+                starting_index = ending_index
+                if ending_index != len(image_paths):
+                    ending_index = min(ending_index + batch_size, len(image_paths))
+                else:
+                    ending_index += 1
+            print(f"Elapsed time : {time.time() - start}")
+
+            if save and (epoch + 1) % 5 == 0:
+                checkpoint.save(f"{datetime.date.today()}/{epoch + 1}_epochs_{dataset_path.split('/')[1]}/")
+                plot = self.__view_progress(image_paths)
+                plot.savefig(f"{datetime.date.today()}/{epoch + 1}_epochs_{dataset_path.split('/')[1]}/results.png")
+
+            eg_losses.append(self.eg_tracker.result().numpy())
+            dz_losses.append(self.dz_tracker.result().numpy())
+            dimg_losses.append(self.dimg_tracker.result().numpy())
+
+        plt.plot(eg_losses, label='EG Losses')
+        plt.plot(dz_losses, label='DZ Losses')
+        plt.plot(dimg_losses, label='DIMG Losses')
+
+        plt.legend()
+
+        plt.savefig(f"{datetime.date.today()}/{epochs}_epochs_{dataset_path.split('/')[1]}/losses.png")
+
+    def __view_progress(self, data):
+        test = np.random.choice(data, 16)
+        ages = create_all_ages()
+        images, _ = read_images(test)
+        all_results = []
+        for image in images:
+            results = [image]
+            for age in ages:
+                image_tensor = tf.expand_dims(image, axis=0)
+                results.append(tf.squeeze(self.eval([image_tensor, age])).numpy())
+
+            all_results.append(np.concatenate(results))
+
+        fig = plt.figure(figsize=(10, 10))
+
+        index = 1
+        for image in all_results:
+            fig.add_subplot(8, 8, index)
+            plt.imshow(image)
+            index += 1
+
+        return plt
+
+    def load_model(self, checkpoint_dir):
+        checkpoint = tf.train.Checkpoint(
+            encoder=self.encoder,
+            decoder=self.decoder,
+            discriminatorZ=self.discriminatorZ,
+            discriminatorImg=self.discriminatorImg,
+            eg_optimizer=self.eg_optimizer,
+            dz_optimizer=self.dz_optimizer,
+            dimg_optimizer=self.dimg_optimizer,
+        )
+        checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
