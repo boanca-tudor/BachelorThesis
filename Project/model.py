@@ -1,11 +1,10 @@
 import datetime
 
-import tensorflow as tf
-from tensorflow.python import keras
-import numpy as np
-from tensorflow.python.keras.layers import *
-from tensorflow.python.keras.losses import *
-from tensorflow.python.keras.optimizer_v2.adam import *
+import keras
+from keras.layers import *
+from keras.losses import *
+from keras.optimizers.schedules.learning_rate_schedule import *
+from keras.optimizers.optimizer_v2.adam import *
 from utils import *
 import time
 import matplotlib.pyplot as plt
@@ -89,8 +88,11 @@ class DiscriminatorZ(keras.Model):
     def create_dense_layers(self, z_channels):
         self.discriminator_layers.add(InputLayer(input_shape=(z_channels, )))
         self.discriminator_layers.add(Dense(64, activation='relu', name='dz_fc1'))
+        self.discriminator_layers.add(BatchNormalization(name='dz_bn1'))
         self.discriminator_layers.add(Dense(32, activation='relu', name='dz_fc2'))
+        self.discriminator_layers.add(BatchNormalization(name='dz_bn2'))
         self.discriminator_layers.add(Dense(16, activation='relu', name='dz_fc3'))
+        self.discriminator_layers.add(BatchNormalization(name='dz_bn3'))
         self.discriminator_layers.add(Dense(1, name='dz_fc4'))
 
     def __call__(self, x):
@@ -118,14 +120,18 @@ class DiscriminatorImg(keras.Model):
         self.pre_concat_discriminator_layers.add(InputLayer(input_shape=(128, 128, 3)))
         self.pre_concat_discriminator_layers.add(Conv2D(16, kernel_size=2, strides=2, padding='same',
                                                         activation='relu', name='dimg_conv1'))
+        self.pre_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn1'))
         # TODO replace hardcoded with age_count
         self.post_concat_discriminator_layers.add(InputLayer(input_shape=(64, 64, 16 + 10)))
         self.post_concat_discriminator_layers.add(Conv2D(32, kernel_size=2, strides=2, padding='same',
                                                          activation='relu', name='dimg_conv2'))
+        self.pre_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn2'))
         self.post_concat_discriminator_layers.add(Conv2D(64, kernel_size=2, strides=2, padding='same',
                                                          activation='relu', name='dimg_conv3'))
+        self.pre_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn3'))
         self.post_concat_discriminator_layers.add(Conv2D(128, kernel_size=2, strides=2, padding='same',
                                                          activation='relu', name='dimg_conv4'))
+        self.pre_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn4'))
 
     def create_dense_layers(self):
         self.post_concat_discriminator_layers.add(Flatten())
@@ -143,7 +149,7 @@ class DiscriminatorImg(keras.Model):
 
 
 class CAAE(keras.Model):
-    def __init__(self, z_channels, l_channels, gen_channels):
+    def __init__(self, z_channels, l_channels, gen_channels, dataset_size):
         super().__init__()
         self.z_channels = z_channels
         self.l_channels = l_channels
@@ -159,9 +165,13 @@ class CAAE(keras.Model):
         self.loss_bce = BinaryCrossentropy()
 
         # optimizers
-        self.eg_optimizer = Adam(1e-4)
-        self.dz_optimizer = Adam(1e-4)
-        self.dimg_optimizer = Adam(1e-4)
+        self.learning_rate = ExponentialDecay(initial_learning_rate=0.0002,
+                                              decay_steps=dataset_size / 64 * 2,
+                                              decay_rate=1.0,
+                                              staircase=True)
+        self.eg_optimizer = Adam(self.learning_rate)
+        self.dz_optimizer = Adam(self.learning_rate)
+        self.dimg_optimizer = Adam(self.learning_rate)
 
         self.eg_tracker = keras.metrics.Mean(name='eg_loss')
         self.dz_tracker = keras.metrics.Mean(name='dz_loss')

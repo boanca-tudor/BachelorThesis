@@ -2,7 +2,6 @@ import tensorflow as tf
 import os
 import numpy as np
 from PIL import Image
-from matplotlib import cm
 
 
 def array_to_image(array):
@@ -31,7 +30,26 @@ def create_all_ages():
 
 
 def label_age(age: int):
-    return min(age // 10, 9)
+    if 0 <= age <= 5:
+        return 0
+    elif 6 <= age <= 10:
+        return 1
+    elif 11 <= age <= 15:
+        return 2
+    elif 16 <= age <= 20:
+        return 3
+    elif 21 <= age <= 30:
+        return 4
+    elif 31 <= age <= 40:
+        return 5
+    elif 41 <= age <= 50:
+        return 6
+    elif 51 <= age <= 60:
+        return 7
+    elif 61 <= age <= 70:
+        return 8
+    else:
+        return 9
 
 
 def create_age_tensor(age: int):
