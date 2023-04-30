@@ -1,16 +1,26 @@
-from model import *
+from models.caae import *
 from utils import *
 import numpy as np
 import matplotlib.pyplot as plt
+from flask import Flask
+from flask_restful import Api
+from api.controller.hello import *
+
+app = Flask(__name__)
+api = Api(app)
+
+api.add_resource(HelloWorld, "/")
 
 if __name__ == '__main__':
+    # app.run(debug=True)
+
     dataset_path = 'data/UTKFace/'
     model = CAAE(z_channels=100,
                  l_channels=10,
                  gen_channels=1024,
                  dataset_size=len(list_full_paths(dataset_path)))
     # training
-    # model.train(50, dataset_path, 64)
+    # model.train(50, dataset_path, 64, '2023-04-24/25_epochs_UTKFace/')
 
     # eval
     checkpoint_dir = '2023-04-24/25_epochs_UTKFace/'
@@ -19,7 +29,7 @@ if __name__ == '__main__':
     ages = create_all_ages()
     image = load_image('test.jpg')
     results = [image]
-    image = tf.expand_dims(load_image('test.jpg'), axis=0)
+    image = tf.expand_dims(image, axis=0)
     for age in ages:
         results.append(tf.squeeze(model.eval([image, age])).numpy())
 

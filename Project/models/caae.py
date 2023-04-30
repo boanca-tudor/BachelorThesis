@@ -246,7 +246,7 @@ class CAAE(keras.Model):
         self.dz_tracker.update_state(dz_total_loss)
         self.dimg_tracker.update_state(dimg_total_loss)
 
-    def train(self, epochs, dataset_path, batch_size, save=True):
+    def train(self, epochs, dataset_path, batch_size, save=True, previous_path=None):
         image_paths = list_full_paths(dataset_path)
 
         eg_losses = []
@@ -262,6 +262,9 @@ class CAAE(keras.Model):
             dz_optimizer=self.dz_optimizer,
             dimg_optimizer=self.dimg_optimizer,
         )
+
+        if previous_path is not None:
+            self.load_model(previous_path)
 
         for epoch in range(epochs):
             start = time.time()
