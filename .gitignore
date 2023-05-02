@@ -131,4 +131,5 @@ dmypy.json
 /Project/data
 /Project/2023*
 /ProjectFE/face-prediction/node-modules
+/Project/.idea
 
