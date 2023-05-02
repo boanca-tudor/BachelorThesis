@@ -1,0 +1,35 @@
+<div>
+  <div class="top-bar center center-text">
+    <span>Face Progression and Regression</span>
+  </div>
+  <br />
+  <br />
+  <mat-grid-list cols="1" class="center">
+    <mat-card class="upload-card">
+      <mat-card-header>
+        <mat-card-title>Select Image</mat-card-title>
+        <mat-card-subtitle>Click to select</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-actions>
+        <input type="file" (change)="selectFile($event)" />
+      </mat-card-actions>
+    </mat-card>
+    <br />
+    <br />
+    <mat-card class="upload-card">
+      <mat-card-header>
+        <mat-card-title>Upload Image</mat-card-title>
+        <mat-card-subtitle>Click to upload</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-actions>
+        <button mat-raised-button (click)="upload()">Upload Picture</button>
+      </mat-card-actions>
+    </mat-card>
+    <div *ngIf="progress != 0">
+      <mat-progress-spinner
+        mode="determinate"
+        [value]="progress"
+      ></mat-progress-spinner>
+    </div>
+  </mat-grid-list>
+</div>

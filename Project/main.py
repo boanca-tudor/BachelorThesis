@@ -2,18 +2,9 @@ from models.caae import *
 from utils import *
 import numpy as np
 import matplotlib.pyplot as plt
-from flask import Flask
-from flask_restful import Api
-from api.controller.hello import *
 
-app = Flask(__name__)
-api = Api(app)
-
-api.add_resource(HelloWorld, "/")
 
 if __name__ == '__main__':
-    # app.run(debug=True)
-
     dataset_path = 'data/UTKFace/'
     model = CAAE(z_channels=100,
                  l_channels=10,

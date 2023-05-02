@@ -2,10 +2,8 @@ from flask_restful import Resource
 from flask import request, jsonify
 
 
-class HelloWorld(Resource):
-    def get(self):
-        return {'message': 'hello world'}
-
+class UploadEndpoint(Resource):
     def post(self):
-        data = request.get_json()
-        return jsonify({'object': data})
+        data = request.files['image']
+        data.save('image.jpg')
+        return {'message': 'bravo boss'}
