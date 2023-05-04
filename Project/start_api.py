@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_restful import Api
-from api.controller.hello import *
+from api.controller.upload import *
 from flask_cors import CORS
 
 app = Flask(__name__)
