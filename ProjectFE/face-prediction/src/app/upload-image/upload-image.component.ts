@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { HttpEventType, HttpResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { UploadService } from './upload.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-upload-image',
@@ -11,17 +12,19 @@ import { UploadService } from './upload.service';
 export class UploadImageComponent implements OnInit {
   currentFile?: File;
   progress = 0;
-  message = '';
-  preview = '';
+  showError: boolean;
+  errorMessage: string;
 
   information?: Observable<any>;
 
-  constructor(private uploadService: UploadService) {}
+  constructor(private uploadService: UploadService, private router: Router) {
+    this.showError = false;
+    this.errorMessage = '';
+  }
 
   selectFile(event: any): void {
-    this.message = '';
-    this.preview = '';
     this.progress = 0;
+    this.showError = false;
     this.currentFile = event.target.files[0];
     console.log(this.currentFile);
   }
@@ -35,19 +38,20 @@ export class UploadImageComponent implements OnInit {
           if (event.type === HttpEventType.UploadProgress) {
             this.progress = Math.round((100 * event.loaded) / event.total);
           } else if (event instanceof HttpResponse) {
-            this.message = event.body.message;
             this.information = this.uploadService.getFiles();
             this.progress = 0;
+            this.router.navigate(['generate']);
           }
         },
         error: (err: any) => {
           console.log(err);
           this.progress = 0;
 
+          this.showError = true;
           if (err.error && err.error.message) {
-            this.message = err.error.message;
+            this.errorMessage = err.error.message;
           } else {
-            this.message = 'Uploading failed!';
+            this.errorMessage = 'Uploading failed!';
           }
 
           this.currentFile = undefined;

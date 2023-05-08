@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "face-progression-757e9"
+  },
+  "targets": {
+    "face-progression-757e9": {
+      "hosting": {
+        "face-prediction": [
+          "bachelor-thesis-web-app"
+        ]
+      }
+    }
+  }
+}

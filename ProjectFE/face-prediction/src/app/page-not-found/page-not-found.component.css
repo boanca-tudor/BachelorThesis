@@ -1,0 +1,10 @@
+#error-message {
+  color: red;
+  font-size: xx-large;
+}
+
+.center {
+  position: absolute;
+  top: 50%;
+  left: 45%;
+}

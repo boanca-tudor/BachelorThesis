@@ -5,7 +5,7 @@ from keras.layers import *
 from keras.losses import *
 from keras.optimizers.schedules.learning_rate_schedule import *
 from keras.optimizers.optimizer_v2.adam import *
-from utils import *
+from model_utils import *
 import time
 import matplotlib.pyplot as plt
 
@@ -148,8 +148,9 @@ class DiscriminatorImg(keras.Model):
         return x, logit_layer(x)
 
 
+# dataset_size is hardcoded for UTKFace
 class CAAE(keras.Model):
-    def __init__(self, z_channels, l_channels, gen_channels, dataset_size):
+    def __init__(self, z_channels, l_channels, gen_channels, dataset_size=23708):
         super().__init__()
         self.z_channels = z_channels
         self.l_channels = l_channels

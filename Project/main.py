@@ -1,5 +1,5 @@
 from models.caae import *
-from utils import *
+from model_utils import *
 import numpy as np
 import matplotlib.pyplot as plt
 

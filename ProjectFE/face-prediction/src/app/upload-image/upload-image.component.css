@@ -1,21 +1,20 @@
 .upload-card {
-  max-width: 400px;
+  width: 400px;
   background-color: rgb(238, 177, 11);
+  margin: 40px;
 }
 
 .center {
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
 }
 
 .center-text {
   text-align: center;
 }
 
-.top-bar {
-  height: 60px;
-  background: #6f43b5;
-  font-size: medium;
-  color: white;
+.error {
+  color: red;
+  font-size: large;
 }

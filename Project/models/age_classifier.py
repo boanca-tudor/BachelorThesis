@@ -1,7 +1,7 @@
 import math
 import keras
 from keras import applications, layers
-from utils import *
+from model_utils import *
 from keras.utils import Sequence
 from scipy.io import loadmat
 from skimage.io import imread
