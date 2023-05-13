@@ -1,13 +1,14 @@
 import datetime
 
 import keras
+from keras.metrics import *
 from keras.layers import *
 from keras.losses import *
 from keras.optimizers.schedules.learning_rate_schedule import *
 from keras.optimizers.optimizer_v2.adam import *
 from model_utils import *
 import time
-import matplotlib.pyplot as plt
+from skimage.io import imsave
 
 
 class Encoder(keras.Model):
@@ -170,13 +171,13 @@ class CAAE(keras.Model):
                                               decay_steps=dataset_size / 64 * 2,
                                               decay_rate=1.0,
                                               staircase=True)
-        self.eg_optimizer = Adam(self.learning_rate)
-        self.dz_optimizer = Adam(self.learning_rate)
-        self.dimg_optimizer = Adam(self.learning_rate)
+        self.eg_optimizer = Adam(self.learning_rate, beta_1=0.5)
+        self.dz_optimizer = Adam(self.learning_rate, beta_1=0.5)
+        self.dimg_optimizer = Adam(self.learning_rate, beta_1=0.5)
 
-        self.eg_tracker = keras.metrics.Mean(name='eg_loss')
-        self.dz_tracker = keras.metrics.Mean(name='dz_loss')
-        self.dimg_tracker = keras.metrics.Mean(name='dimg_loss')
+        self.eg_tracker = Mean(name='eg_loss')
+        self.dz_tracker = Mean(name='dz_loss')
+        self.dimg_tracker = Mean(name='dimg_loss')
 
     def eval(self, args):
         x = args[0]
@@ -247,12 +248,14 @@ class CAAE(keras.Model):
         self.dz_tracker.update_state(dz_total_loss)
         self.dimg_tracker.update_state(dimg_total_loss)
 
-    def train(self, epochs, dataset_path, batch_size, save=True, previous_path=None):
+    def train(self, epochs, dataset_path, batch_size, save="all", previous_path=None):
         image_paths = list_full_paths(dataset_path)
 
         eg_losses = []
         dz_losses = []
         dimg_losses = []
+
+        day = datetime.date.today()
 
         checkpoint = tf.train.Checkpoint(
             encoder=self.encoder,
@@ -264,8 +267,10 @@ class CAAE(keras.Model):
             dimg_optimizer=self.dimg_optimizer,
         )
 
+        previous_epoch_count = None
         if previous_path is not None:
             self.load_model(previous_path)
+            previous_epoch_count = int((previous_path.split("/")[1]).split("_")[0])
 
         for epoch in range(epochs):
             start = time.time()
@@ -281,26 +286,36 @@ class CAAE(keras.Model):
                     ending_index = min(ending_index + batch_size, len(image_paths))
                 else:
                     ending_index += 1
-            print(f"Elapsed time : {time.time() - start}")
 
-            if save and (epoch + 1) % 5 == 0:
-                checkpoint.save(f"{datetime.date.today()}/{epoch + 1}_epochs_{dataset_path.split('/')[1]}/")
-                plot = self.__view_progress(image_paths)
-                plot.savefig(f"{datetime.date.today()}/{epoch + 1}_epochs_{dataset_path.split('/')[1]}/results.png")
+            if save == "all":
+                self.save_results(checkpoint, dataset_path, day, epoch, image_paths, previous_epoch_count)
+            elif save.startswith("every"):
+                count = int(save[5:])
+                if (epoch + 1) % count == 0:
+                    self.save_results(checkpoint, dataset_path, day, epoch, image_paths, previous_epoch_count)
 
             eg_losses.append(self.eg_tracker.result().numpy())
             dz_losses.append(self.dz_tracker.result().numpy())
             dimg_losses.append(self.dimg_tracker.result().numpy())
 
-        plt.plot(eg_losses, label='EG Losses')
-        plt.plot(dz_losses, label='DZ Losses')
-        plt.plot(dimg_losses, label='DIMG Losses')
+            print(f"Elapsed time : {time.time() - start}")
 
-        plt.legend()
+        # plt.plot(eg_losses, label='EG Losses')
+        # plt.plot(dz_losses, label='DZ Losses')
+        # plt.plot(dimg_losses, label='DIMG Losses')
+        #
+        # plt.legend()
+        #
+        # plt.savefig(f"{datetime.date.today()}/{epochs}_epochs_{dataset_path.split('/')[1]}/losses.png")
 
-        plt.savefig(f"{datetime.date.today()}/{epochs}_epochs_{dataset_path.split('/')[1]}/losses.png")
+    def save_results(self, checkpoint, dataset_path, day, epoch, image_paths, previous_epoch_count=None):
+        if previous_epoch_count is not None:
+            epoch += previous_epoch_count
+        folder_string = f"{day}/{epoch + 1}_epochs_{dataset_path.split('/')[1]}/"
+        checkpoint.save(folder_string)
+        self.__view_progress(image_paths, folder_string)
 
-    def __view_progress(self, data):
+    def __view_progress(self, data, folder_string):
         test = np.random.choice(data, 16)
         ages = create_all_ages()
         images, _ = read_images(test)
@@ -313,15 +328,11 @@ class CAAE(keras.Model):
 
             all_results.append(np.concatenate(results))
 
-        fig = plt.figure(figsize=(10, 10))
-
-        index = 1
-        for image in all_results:
-            fig.add_subplot(8, 8, index)
-            plt.imshow(image)
-            index += 1
-
-        return plt
+        all_results = np.asarray(all_results)
+        final_result = all_results[0]
+        for i in range(1, len(all_results)):
+            final_result = np.concatenate((final_result, all_results[i]), axis=1)
+        imsave(f"{folder_string}/result.jpg", (final_result * 255).astype(np.uint8))
 
     def load_model(self, checkpoint_dir):
         checkpoint = tf.train.Checkpoint(
