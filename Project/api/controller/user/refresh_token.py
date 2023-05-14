@@ -5,7 +5,7 @@ from flask import jsonify
 
 class RefreshTokenEndpoint(Resource):
     @jwt_required(refresh=True)
-    def post(self):
+    def get(self):
         identity = get_jwt_identity()
         access_token = create_access_token(identity=identity)
         return jsonify(access_token=access_token)

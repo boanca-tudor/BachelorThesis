@@ -13,13 +13,14 @@ from api.controller.user.upload import *
 from api.repository.image_holder import ImageHolder
 from api.model.database import init_db
 from config_utils import *
+from models.caae import CAAE
 
 
-# model = CAAE(z_channels=100,
-#              l_channels=10,
-#              gen_channels=1024)
-# checkpoint_dir = '2023-04-24/25_epochs_UTKFace/'
-# model.load_model(checkpoint_dir)
+model = CAAE(z_channels=100,
+             l_channels=10,
+             gen_channels=1024)
+checkpoint_dir = '2023-04-24/25_epochs_UTKFace/'
+model.load_model(checkpoint_dir)
 
 
 app = Flask(__name__)
@@ -43,16 +44,16 @@ api.add_resource(GetUploadedEndpoint, "/getUploadedImage", resource_class_kwargs
 
 api.add_resource(GenerateSingleResultEndpoint, '/generateSingleResult', resource_class_kwargs={
     'image_holder': image_holder,
-    'model': None
+    'model': model
 })
 
-api.add_resource(LoginEndpoint, '/login', resource_class_kwargs={
+api.add_resource(LoginEndpoint, '/auth/login', resource_class_kwargs={
     'database': db
 })
 
-api.add_resource(RefreshTokenEndpoint, '/refresh')
+api.add_resource(RefreshTokenEndpoint, '/auth/refresh')
 
-api.add_resource(RegisterEndpoint, '/addUser', resource_class_kwargs={
+api.add_resource(RegisterEndpoint, '/auth/register', resource_class_kwargs={
     'database': db
 })
 
