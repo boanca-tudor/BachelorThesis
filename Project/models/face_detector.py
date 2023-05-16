@@ -10,13 +10,7 @@ def get_cropped_face(img_path):
     # Detect faces
     faces = face_cascade.detectMultiScale(gray, 1.03, 5)
     if len(faces) == 0:
-        return img
+        return 0, img
     x, y, w, h = faces[0]
     cropped = img[y:y+h, x:x+w]
-    return cropped
-
-
-if __name__ == "__main__":
-    image = get_cropped_face("../test3.jpg")
-    cv2.imshow('image', image)
-    cv2.waitKey(0)
+    return 1, cropped

@@ -6,6 +6,7 @@ from flask_restful import Api
 
 from api.controller.auth.register import RegisterEndpoint
 from api.controller.auth.login import LoginEndpoint
+from api.controller.user.crop_face import CropFaceEndpoint
 from api.controller.user.generate_single_result import GenerateSingleResultEndpoint
 from api.controller.user.get_uploaded import GetUploadedEndpoint
 from api.controller.user.refresh_token import RefreshTokenEndpoint
@@ -57,6 +58,9 @@ api.add_resource(RegisterEndpoint, '/auth/register', resource_class_kwargs={
     'database': db
 })
 
+api.add_resource(CropFaceEndpoint, '/crop', resource_class_kwargs={
+    'image_holder': image_holder
+})
 
 if __name__ == '__main__':
     app.run(debug=True)
