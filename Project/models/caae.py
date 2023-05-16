@@ -9,6 +9,7 @@ from keras.optimizers.optimizer_v2.adam import *
 from model_utils import *
 import time
 from skimage.io import imsave
+import matplotlib.pyplot as plt
 
 
 class Encoder(keras.Model):
@@ -207,7 +208,7 @@ class CAAE(keras.Model):
                                          self.loss_l1(generated[:, :, :-1, :], generated[:, :, 1:, :]))
 
             # discriminatorZ loss
-            z_prior = tf.random.uniform(z_images.shape)
+            z_prior = np.random.uniform(-1, 1, z_images.shape).astype(np.float32)
             dz_prior, dz_prior_logits = self.discriminatorZ(z_prior)
             dz, dz_logits = self.discriminatorZ(z_images)
             dz_loss_prior = self.loss_bce(dz_prior_logits, tf.ones_like(dz_prior_logits))
@@ -221,12 +222,14 @@ class CAAE(keras.Model):
             dimg_input, dimg_input_logits = self.discriminatorImg(images, labels)
             dimg_output, dimg_output_logits = self.discriminatorImg(generated, labels)
 
-            dimg_input_loss = self.loss_bce(dimg_input_logits, tf.ones_like(dimg_input_logits))
-            dimg_output_loss = self.loss_bce(dimg_output_logits, tf.zeros_like(dimg_output_logits))
-            dimg_total_loss = dimg_input_loss + dimg_output_loss
+            dimg_loss = self.discriminator_img_loss(dimg_input, dimg_output)
+            gradient_penalty = self.gradient_penalty(images.shape[0], images, generated, labels)
+            # dimg_input_loss = self.loss_bce(dimg_input_logits, tf.ones_like(dimg_input_logits))
+            # dimg_output_loss = self.loss_bce(dimg_output_logits, tf.zeros_like(dimg_output_logits))
+            dimg_total_loss = dimg_loss + gradient_penalty * 10.0
 
             # discriminatorImg/generator loss
-            dg_loss = loss_weights[2] * self.loss_bce(dimg_output_logits, tf.ones_like(dimg_output_logits))
+            dg_loss = loss_weights[2] * self.generator_loss(dimg_output_logits)
 
             eg_total_loss = eg_loss + dg_loss + ez_loss + tv_loss
 
@@ -247,6 +250,31 @@ class CAAE(keras.Model):
         self.eg_tracker.update_state(eg_total_loss)
         self.dz_tracker.update_state(dz_total_loss)
         self.dimg_tracker.update_state(dimg_total_loss)
+
+    @tf.function
+    def gradient_penalty(self, batch_size, real_images, fake_images, ages):
+        alpha = tf.random.normal([batch_size, 1, 1, 1], 0.0, 1.0)
+        diff = fake_images - real_images
+        interpolated = real_images + alpha * diff
+
+        with tf.GradientTape() as gp_tape:
+            gp_tape.watch(interpolated)
+            pred = self.discriminatorImg(interpolated, ages)
+
+        grads = gp_tape.gradient(pred, [interpolated])[0]
+        norm = tf.sqrt(tf.reduce_sum(tf.square(grads), axis=[1, 2, 3]))
+        gp = tf.reduce_mean((norm - 1.0) ** 2)
+        return gp
+
+    @tf.function
+    def discriminator_img_loss(self, real_img, fake_img):
+        real_loss = tf.reduce_mean(real_img)
+        fake_loss = tf.reduce_mean(fake_img)
+        return fake_loss - real_loss
+
+    @tf.function
+    def generator_loss(self, fake_img):
+        return -tf.reduce_mean(fake_img)
 
     def train(self, epochs, dataset_path, batch_size, save="all", previous_path=None):
         image_paths = list_full_paths(dataset_path)
@@ -297,16 +325,15 @@ class CAAE(keras.Model):
             eg_losses.append(self.eg_tracker.result().numpy())
             dz_losses.append(self.dz_tracker.result().numpy())
             dimg_losses.append(self.dimg_tracker.result().numpy())
-
             print(f"Elapsed time : {time.time() - start}")
 
-        # plt.plot(eg_losses, label='EG Losses')
-        # plt.plot(dz_losses, label='DZ Losses')
-        # plt.plot(dimg_losses, label='DIMG Losses')
-        #
-        # plt.legend()
-        #
-        # plt.savefig(f"{datetime.date.today()}/{epochs}_epochs_{dataset_path.split('/')[1]}/losses.png")
+        plt.plot(eg_losses, label='EG Losses')
+        plt.plot(dz_losses, label='DZ Losses')
+        plt.plot(dimg_losses, label='DIMG Losses')
+
+        plt.legend()
+
+        plt.savefig(f"{day}/{epochs}_epochs_{dataset_path.split('/')[1]}/losses.png")
 
     def save_results(self, checkpoint, dataset_path, day, epoch, image_paths, previous_epoch_count=None):
         if previous_epoch_count is not None:
@@ -332,7 +359,7 @@ class CAAE(keras.Model):
         final_result = all_results[0]
         for i in range(1, len(all_results)):
             final_result = np.concatenate((final_result, all_results[i]), axis=1)
-        imsave(f"{folder_string}/result.jpg", (final_result * 255).astype(np.uint8))
+        imsave(f"{folder_string}/result.jpg", (((final_result + 1) / 2) * 255).astype(np.uint8))
 
     def load_model(self, checkpoint_dir):
         checkpoint = tf.train.Checkpoint(
