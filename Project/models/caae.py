@@ -9,6 +9,7 @@ from keras.optimizers.optimizer_v2.adam import *
 from model_utils import *
 import time
 from skimage.io import imsave
+import matplotlib.pyplot as plt
 
 
 class Encoder(keras.Model):
@@ -207,7 +208,7 @@ class CAAE(keras.Model):
                                          self.loss_l1(generated[:, :, :-1, :], generated[:, :, 1:, :]))
 
             # discriminatorZ loss
-            z_prior = tf.random.uniform(z_images.shape)
+            z_prior = np.random.uniform(-1, 1, z_images.shape).astype(np.float32)
             dz_prior, dz_prior_logits = self.discriminatorZ(z_prior)
             dz, dz_logits = self.discriminatorZ(z_images)
             dz_loss_prior = self.loss_bce(dz_prior_logits, tf.ones_like(dz_prior_logits))
@@ -300,13 +301,13 @@ class CAAE(keras.Model):
 
             print(f"Elapsed time : {time.time() - start}")
 
-        # plt.plot(eg_losses, label='EG Losses')
-        # plt.plot(dz_losses, label='DZ Losses')
-        # plt.plot(dimg_losses, label='DIMG Losses')
-        #
-        # plt.legend()
-        #
-        # plt.savefig(f"{datetime.date.today()}/{epochs}_epochs_{dataset_path.split('/')[1]}/losses.png")
+        plt.plot(eg_losses, label='EG Losses')
+        plt.plot(dz_losses, label='DZ Losses')
+        plt.plot(dimg_losses, label='DIMG Losses')
+
+        plt.legend()
+
+        plt.savefig(f"{day}/{epochs}_epochs_{dataset_path.split('/')[1]}/losses.png")
 
     def save_results(self, checkpoint, dataset_path, day, epoch, image_paths, previous_epoch_count=None):
         if previous_epoch_count is not None:
@@ -332,7 +333,7 @@ class CAAE(keras.Model):
         final_result = all_results[0]
         for i in range(1, len(all_results)):
             final_result = np.concatenate((final_result, all_results[i]), axis=1)
-        imsave(f"{folder_string}/result.jpg", (final_result * 255).astype(np.uint8))
+        imsave(f"{folder_string}/result.jpg", (((final_result + 1) / 2) * 255).astype(np.uint8))
 
     def load_model(self, checkpoint_dir):
         checkpoint = tf.train.Checkpoint(
