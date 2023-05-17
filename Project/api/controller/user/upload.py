@@ -12,4 +12,4 @@ class UploadEndpoint(Resource):
         data = request.files['image']
         self.__holder.raw_image = data
         self.__holder.image = data.read()
-        return {'message': 'bravo boss'}
+        return {'message': 'success'}
