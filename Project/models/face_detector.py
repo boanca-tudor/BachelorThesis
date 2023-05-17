@@ -1,10 +1,12 @@
 import cv2
+import numpy as np
 
 
-def get_cropped_face(img_path):
+def get_cropped_face(bytes):
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     # Read the input image
-    img = cv2.imread(img_path)
+    nparr = np.frombuffer(bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     # Convert into grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # Detect faces
