@@ -236,7 +236,7 @@ class CAAE(keras.Model):
 
     # data is image batch + labels
     @tf.function
-    def train_step(self, data, loss_weights=(0, 0.0001, 0.0001)):
+    def train_step(self, data, loss_weights=(0, 0.0001, 0.001)):
         images = data[0]
         labels = data[1]
 
@@ -383,8 +383,8 @@ class CAAE(keras.Model):
         checkpoint = tf.train.Checkpoint(
             encoder=self.encoder,
             decoder=self.decoder,
-            discriminatorZ=self.discriminatorZ,
-            discriminatorImg=self.discriminatorImg,
+            discriminator_z=self.discriminatorZ,
+            patch_discriminator=self.patchDiscriminator,
             eg_optimizer=self.eg_optimizer,
             dz_optimizer=self.dz_optimizer,
             dimg_optimizer=self.dimg_optimizer,
