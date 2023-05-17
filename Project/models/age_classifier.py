@@ -30,7 +30,7 @@ def calc_age(taken, dob):
         return taken - birth.year - 1
 
 
-def get_meta(mat_path, db='imdb'):
+def get_imdb_meta(mat_path, db="imdb"):
     meta = loadmat(mat_path)
     full_path = meta[db][0, 0]["full_path"][0]
     dob = meta[db][0, 0]["dob"][0]  # Matlab serial date number
@@ -43,19 +43,38 @@ def get_meta(mat_path, db='imdb'):
     return full_path, dob, gender, photo_taken, face_score, second_face_score, age
 
 
+def get_cacd_meta(mat_path):
+    meta = loadmat(mat_path)
+    image_data = meta['celebrityImageData']
+
+    return image_data[0, 0][0], image_data[0, 0][-1]
+
+
+def get_from_images(dataset_path):
+    ages = []
+    images = []
+    for file in os.listdir(dataset_path):
+        ages.append(int(file.split("_")[0]))
+        images.append(file)
+
+    return ages, images
+
+
 class ImageSequence(Sequence):
-    def __init__(self, x, y, batch_size=64):
+    def __init__(self, x, y, dataset_path, batch_size=64):
         self.x, self.y = np.asarray(x), np.asarray(y)
+        self.indices = np.arange(len(x))
+        self.dataset_path = dataset_path
         self.batch_size = batch_size
 
     def __getitem__(self, idx):
         start = idx * self.batch_size
-        end = min(start + self.batch_size, len(self.x))
+        end = min(start + self.batch_size, len(self.indices))
 
         imgs = []
         ages = []
-        for i in range(start, end):
-            image = resize(imread("data/imdb_crop/" + self.x[i]), (128, 128))
+        for i in self.indices[start: end]:
+            image = resize(imread(self.dataset_path + self.x[i]), (128, 128))
             if image.shape == (128, 128, 3):
                 imgs.append(image)
                 ages.append(self.y[i])
@@ -66,8 +85,7 @@ class ImageSequence(Sequence):
         return math.ceil(len(self.x) / self.batch_size)
 
     def on_epoch_end(self):
-        np.random.shuffle(self.x)
-        np.random.shuffle(self.y)
+        np.random.shuffle(self.indices)
 
 
 class Schedule:
