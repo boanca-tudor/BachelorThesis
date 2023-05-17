@@ -1,9 +1,0 @@
-<mat-card class="upload card">
-  <img
-    [src]="image"
-    alt="Uploaded image"
-    *ngIf="!imageLoading; else noImageFound"
-  />
-
-  <ng-template #noImageFound> No image was uploaded. </ng-template>
-</mat-card>
