@@ -10,7 +10,7 @@ class GetUploadedEndpoint(Resource):
 
     @jwt_required()
     def get(self):
-        image_data = BytesIO(self.__holder.image)
+        image_data = self.__holder.image
         response = make_response(image_data.getvalue())
         response.headers['Content-Type'] = 'image/jpg'
         return response

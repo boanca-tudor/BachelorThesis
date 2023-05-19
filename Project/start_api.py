@@ -17,11 +17,11 @@ from config_utils import *
 from models.caae import CAAE
 
 
-# model = CAAE(z_channels=100,
-#              l_channels=10,
-#              gen_channels=1024)
-# checkpoint_dir = '2023-04-24/25_epochs_UTKFace/'
-# model.load_model(checkpoint_dir)
+model = CAAE(z_channels=100,
+             l_channels=10,
+             gen_channels=1024)
+checkpoint_dir = '2023-04-24/25_epochs_UTKFace/'
+model.load_model(checkpoint_dir)
 
 
 app = Flask(__name__)

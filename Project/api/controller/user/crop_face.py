@@ -23,6 +23,7 @@ class CropFaceEndpoint(Resource):
             image_crop_pil = Image.fromarray(image_data)
             bytes_io = BytesIO()
             image_crop_pil.save(bytes_io, format='jpeg')
+            self.__holder.image = bytes_io
             response = make_response(bytes_io.getvalue())
             response.headers['Content-Type'] = 'image/jpg'
             return response

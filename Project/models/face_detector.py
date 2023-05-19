@@ -7,8 +7,9 @@ def get_cropped_face(bytes):
     # Read the input image
     nparr = np.frombuffer(bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     # Convert into grayscale
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     # Detect faces
     faces = face_cascade.detectMultiScale(gray, 1.03, 5)
     if len(faces) == 0:

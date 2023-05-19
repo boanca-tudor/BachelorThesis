@@ -17,7 +17,7 @@ class GenerateSingleResultEndpoint(Resource):
     @jwt_required()
     def get(self):
         age = int(request.args.get("requiredAge"))
-        image_data = load_image("image.jpg")
+        image_data = self.__holder.image.read()
         image = tf.expand_dims(image_data, axis=0)
         result = tf.squeeze(self.__model.eval([image, age])).numpy()
         imsave("result.jpg", (result * 255).astype(np.uint8))
