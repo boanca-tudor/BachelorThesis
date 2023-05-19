@@ -13,7 +13,7 @@ class CropFaceEndpoint(Resource):
 
     @jwt_required()
     def get(self):
-        image_data = BytesIO(self.__holder.image)
+        image_data = self.__holder.image
         result, image_data = get_cropped_face(image_data.getvalue())
         if result == 0:
             response = make_response(image_data.getvalue())

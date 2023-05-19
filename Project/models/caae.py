@@ -346,3 +346,10 @@ class CAAE(keras.Model):
             dimg_optimizer=self.dimg_optimizer,
         )
         checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+
+    def load_for_eval(self, checkpoint_dir):
+        checkpoint = tf.train.Checkpoint(
+            encoder=self.encoder,
+            decoder=self.decoder
+        )
+        checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir)).expect_partial()
