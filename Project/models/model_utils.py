@@ -23,10 +23,7 @@ def concatenate_images(im1, im2):
 
 
 def create_all_ages():
-    ages = []
-    for i in range(10):
-        ages.append(i * 10 + 5)
-    return np.asarray(ages)
+    return np.asarray([2, 7, 12, 17, 22, 32, 42, 52, 62, 72])
 
 
 def label_age(age: int):
@@ -74,7 +71,7 @@ def read_images(image_filenames):
 
 def load_image(filename):
     img = Image.open(filename).resize((128, 128))
-    return np.asarray(img).astype(dtype='float32') / 255
+    return np.asarray(img).astype(dtype='float32') / 127.5 - 1
 
 
 @tf.function

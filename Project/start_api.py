@@ -21,7 +21,7 @@ from models.caae import CAAE
 model = CAAE(z_channels=100,
              l_channels=10,
              gen_channels=1024)
-checkpoint_dir = '2023-05-13 - NormalCAAE/175_epochs_UTKFace/'
+checkpoint_dir = '2023-05-22/50_epochs_UTKFace/'
 model.load_for_eval(checkpoint_dir)
 
 

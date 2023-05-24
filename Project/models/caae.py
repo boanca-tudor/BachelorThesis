@@ -6,7 +6,7 @@ from keras.layers import *
 from keras.losses import *
 from keras.optimizers.schedules.learning_rate_schedule import *
 from keras.optimizers.optimizer_v2.adam import *
-from model_utils import *
+from models.model_utils import *
 import time
 from skimage.io import imsave
 import matplotlib.pyplot as plt

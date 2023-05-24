@@ -1,12 +1,13 @@
 from io import BytesIO
 
+import numpy as np
+import tensorflow as tf
+from flask import make_response
 from flask_jwt_extended import jwt_required
 from flask_restful import Resource
-from flask import request, make_response
-from model_utils import load_image, create_all_ages
-import tensorflow as tf
 from skimage.io import imsave
-import numpy as np
+
+from models.model_utils import load_image, create_all_ages
 
 
 class GenerateEvolutionEndpoint(Resource):
@@ -17,11 +18,10 @@ class GenerateEvolutionEndpoint(Resource):
     @jwt_required()
     def get(self):
         ages = create_all_ages()
-        image_data = self.__holder.image.read()
-        image = tf.expand_dims(image_data, axis=0)
-        results = [image]
+        image_data = load_image(self.__holder.image)
+        results = []
+        image_tensor = tf.expand_dims(image_data, axis=0)
         for age in ages:
-            image_tensor = tf.expand_dims(image, axis=0)
             results.append(tf.squeeze(self.__model.eval([image_tensor, age])).numpy())
 
         results = np.concatenate(results, axis=1)
