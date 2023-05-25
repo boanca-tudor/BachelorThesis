@@ -1,8 +1,5 @@
 from models.caae import *
-from model_utils import *
-import numpy as np
-import matplotlib.pyplot as plt
-
+from models.model_utils import *
 
 if __name__ == '__main__':
     dataset_path = 'data/UTKFace/'
@@ -11,10 +8,11 @@ if __name__ == '__main__':
                  gen_channels=1024,
                  dataset_size=len(list_full_paths(dataset_path)))
     # training
-    # model.train(50, dataset_path, 64, '2023-04-24/25_epochs_UTKFace/')
+    # model.train(50, dataset_path, 64)
+
 
     # eval
-    checkpoint_dir = '2023-04-24/25_epochs_UTKFace/'
+    checkpoint_dir = '2023-05-22/50_epochs_UTKFace/'
     model.load_model(checkpoint_dir)
 
     ages = create_all_ages()
@@ -24,6 +22,5 @@ if __name__ == '__main__':
     for age in ages:
         results.append(tf.squeeze(model.eval([image, age])).numpy())
 
-    all_images = np.concatenate(results)
-    plt.imshow(all_images)
-    plt.show()
+    results = np.concatenate(results, axis=0)
+    imsave("result.jpg", (((results + 1) / 2) * 255).astype(np.uint8))

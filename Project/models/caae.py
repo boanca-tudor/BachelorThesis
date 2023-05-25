@@ -6,7 +6,7 @@ from keras.layers import *
 from keras.losses import *
 from keras.optimizers.schedules.learning_rate_schedule import *
 from keras.optimizers.optimizer_v2.adam import *
-from model_utils import *
+from models.model_utils import *
 import time
 from skimage.io import imsave
 import matplotlib.pyplot as plt
@@ -390,3 +390,10 @@ class CAAE(keras.Model):
             dimg_optimizer=self.dimg_optimizer,
         )
         checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+
+    def load_for_eval(self, checkpoint_dir):
+        checkpoint = tf.train.Checkpoint(
+            encoder=self.encoder,
+            decoder=self.decoder
+        )
+        checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir)).expect_partial()
