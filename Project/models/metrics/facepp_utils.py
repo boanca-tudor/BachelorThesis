@@ -1,5 +1,3 @@
-import json
-
 from facepplib import *
 import configparser
 
