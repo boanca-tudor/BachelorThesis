@@ -190,7 +190,7 @@ class PatchDiscriminator(keras.Model):
         x = tf.concat([x, reshaped_age_label], -1)
         x = self.post_concat_discriminator_layers(x)
         sigmoid_layer = Activation('sigmoid')
-        return sigmoid_layer(x)
+        return x, sigmoid_layer(x)
 
 
 # dataset_size is hardcoded for UTKFace
@@ -263,15 +263,17 @@ class CAAE(keras.Model):
             ez_loss = loss_weights[1] * self.loss_bce(dz_logits, tf.ones_like(dz_logits))
 
             # discriminatorImg loss
-            dimg_input_logits = self.patchDiscriminator(images, labels)
-            dimg_output_logits = self.patchDiscriminator(generated, labels)
+            dimg_input, dimg_input_logits = self.patchDiscriminator(images, labels)
+            dimg_output, dimg_output_logits = self.patchDiscriminator(generated, labels)
 
-            dimg_input_loss = self.loss_bce(dimg_input_logits, tf.ones_like(dimg_input_logits))
-            dimg_output_loss = self.loss_bce(dimg_output_logits, tf.zeros_like(dimg_output_logits))
-            dimg_total_loss = dimg_input_loss + dimg_output_loss
+            dimg_loss = self.discriminator_img_loss(dimg_input, dimg_output)
+            gradient_penalty = self.gradient_penalty(images.shape[0], images, generated, labels)
+            # dimg_input_loss = self.loss_bce(dimg_input_logits, tf.ones_like(dimg_input_logits))
+            # dimg_output_loss = self.loss_bce(dimg_output_logits, tf.zeros_like(dimg_output_logits))
+            dimg_total_loss = dimg_loss + gradient_penalty * 10.0
 
             # discriminatorImg/generator loss
-            dg_loss = loss_weights[2] * self.loss_bce(dimg_output_logits, tf.ones_like(dimg_output_logits))
+            dg_loss = loss_weights[2] * self.generator_loss(dimg_output_logits)
 
             eg_total_loss = eg_loss + dg_loss + ez_loss + tv_loss
 
@@ -292,6 +294,31 @@ class CAAE(keras.Model):
         self.eg_tracker.update_state(eg_total_loss)
         self.dz_tracker.update_state(dz_total_loss)
         self.dimg_tracker.update_state(dimg_total_loss)
+
+    @tf.function
+    def gradient_penalty(self, batch_size, real_images, fake_images, ages):
+        alpha = tf.random.normal([batch_size, 1, 1, 1], 0.0, 1.0)
+        diff = fake_images - real_images
+        interpolated = real_images + alpha * diff
+
+        with tf.GradientTape() as gp_tape:
+            gp_tape.watch(interpolated)
+            pred = self.patchDiscriminator(interpolated, ages)
+
+        grads = gp_tape.gradient(pred, [interpolated])[0]
+        norm = tf.sqrt(tf.reduce_sum(tf.square(grads), axis=[1, 2, 3]))
+        gp = tf.reduce_mean((norm - 1.0) ** 2)
+        return gp
+
+    @tf.function
+    def discriminator_img_loss(self, real_img, fake_img):
+        real_loss = tf.reduce_mean(real_img)
+        fake_loss = tf.reduce_mean(fake_img)
+        return fake_loss - real_loss
+
+    @tf.function
+    def generator_loss(self, fake_img):
+        return -tf.reduce_mean(fake_img)
 
     def train(self, epochs, dataset_path, batch_size, save="all", previous_path=None):
         image_paths = list_full_paths(dataset_path)
