@@ -1,9 +1,13 @@
+from io import BytesIO
+
 from flask_jwt_extended import jwt_required
 from flask_restful import Resource
-from flask import request
-from model_utils import load_image
+from flask import request, make_response
 import tensorflow as tf
-import matplotlib.pyplot as plt
+from skimage.io import imsave
+import numpy as np
+
+from models.model_utils import load_image
 
 
 class GenerateSingleResultEndpoint(Resource):
@@ -13,10 +17,13 @@ class GenerateSingleResultEndpoint(Resource):
 
     @jwt_required()
     def get(self):
-        age = request.args.get("requiredAge")
-        image_data = load_image("image.jpg")
-        image = tf.expand_dims(image_data, axis=0)
+        age = int(request.args.get("requiredAge"))
+        image_data = self.__holder.image
+        image = load_image(image_data)
+        image = tf.expand_dims(image, axis=0)
         result = tf.squeeze(self.__model.eval([image, age])).numpy()
-        plt.imshow(result)
-        plt.show()
-        return {'message': 'ahem'}
+        imsave("result.jpg", (((result + 1) / 2) * 255).astype(np.uint8))
+        image_data = BytesIO(open("result.jpg", "rb").read())
+        response = make_response(image_data.getvalue())
+        response.headers['Content-Type'] = 'image/jpg'
+        return response
