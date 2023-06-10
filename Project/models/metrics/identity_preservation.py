@@ -45,4 +45,4 @@ if __name__ == "__main__":
     facepp_client = create_facepp_client('face++_config.ini')
     model_paths = read_caae_paths('face++_config.ini')
 
-    for_one_image(facepp_client, 'metric_images/test.jpg', model_paths['base'], 40)
+    for_one_image(facepp_client, 'metric_images/test.jpg', model_paths['patchgan'], 40)

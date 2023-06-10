@@ -127,13 +127,13 @@ class DiscriminatorImg(keras.Model):
         self.post_concat_discriminator_layers.add(InputLayer(input_shape=(64, 64, 16 + 10)))
         self.post_concat_discriminator_layers.add(Conv2D(32, kernel_size=2, strides=2, padding='same',
                                                          activation='relu', name='dimg_conv2'))
-        self.pre_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn2'))
+        self.post_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn2'))
         self.post_concat_discriminator_layers.add(Conv2D(64, kernel_size=2, strides=2, padding='same',
                                                          activation='relu', name='dimg_conv3'))
-        self.pre_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn3'))
+        self.post_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn3'))
         self.post_concat_discriminator_layers.add(Conv2D(128, kernel_size=2, strides=2, padding='same',
                                                          activation='relu', name='dimg_conv4'))
-        self.pre_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn4'))
+        self.post_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn4'))
 
     def create_dense_layers(self):
         self.post_concat_discriminator_layers.add(Flatten())
@@ -163,7 +163,6 @@ class PatchDiscriminator(keras.Model):
 
         self.post_concat_discriminator_layers.build((1, 64, 64, 74))
         self.post_concat_discriminator_layers.summary()
-
 
     def create_convolutional_layers(self):
         self.pre_concat_discriminator_layers.add(InputLayer(input_shape=(128, 128, 3)))
