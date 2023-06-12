@@ -1,6 +1,9 @@
 import math
 import keras
-from keras import applications, layers
+from keras import layers
+from keras_vggface.vggface import VGGFace
+from keras.utils import to_categorical
+from keras_vggface import utils
 from models.model_utils import *
 from keras.utils import Sequence
 from scipy.io import loadmat
@@ -10,14 +13,20 @@ import datetime
 
 
 def create_model(image_size):
-    base_model = applications.EfficientNetV2B0(
+    base_model = VGGFace(
         include_top=False,
         input_shape=(image_size, image_size, 3),
-        pooling="avg"
     )
-    features = base_model.output
-    pred_age = layers.Dense(units=101, activation='softmax', name='pred_age')(features)
-    return keras.Model(inputs=base_model.input, outputs=pred_age)
+    base_model.trainable = False
+    flatten_layer = layers.Flatten()
+    dense_1 = layers.Dense(200, activation='relu')
+    prediction = layers.Dense(99, activation='softmax')
+    return keras.Sequential([
+        base_model,
+        flatten_layer,
+        dense_1,
+        prediction
+    ])
 
 
 def calc_age(taken, dob):
@@ -76,8 +85,8 @@ class ImageSequence(Sequence):
         for i in self.indices[start: end]:
             image = resize(imread(self.dataset_path + self.x[i]), (128, 128))
             if image.shape == (128, 128, 3):
-                imgs.append(image)
-                ages.append(self.y[i])
+                imgs.append(utils.preprocess_input(image))
+                ages.append(to_categorical(self.y[i], 99))
 
         return np.asarray(imgs), np.asarray(ages)
 

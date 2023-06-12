@@ -56,6 +56,13 @@ def create_age_tensor(age: int):
     return age_tensor
 
 
+def create_age_tensor_for_classifier(age: int):
+    age_tensor = np.zeros((10,), dtype=np.uint8)
+    age = label_age(age)
+    age_tensor[age] = 1
+    return age_tensor
+
+
 def list_full_paths(directory):
     return [os.path.join(directory, file) for file in os.listdir(directory)]
 
