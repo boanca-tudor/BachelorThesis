@@ -151,12 +151,12 @@ class DiscriminatorImg(keras.Model):
 
 
 class PatchDiscriminator(keras.Model):
-    def __init__(self):
+    def __init__(self, l_channels):
         super(PatchDiscriminator, self).__init__()
         self.pre_concat_discriminator_layers = keras.Sequential(name='patchd_preconcat_layers')
         self.post_concat_discriminator_layers = keras.Sequential(name='patchd_postconcat_layers')
 
-        self.create_convolutional_layers()
+        self.create_convolutional_layers(l_channels)
 
         self.pre_concat_discriminator_layers.build((1, 128, 128, 3))
         # self.pre_concat_discriminator_layers.summary()
@@ -164,14 +164,14 @@ class PatchDiscriminator(keras.Model):
         self.post_concat_discriminator_layers.build((1, 64, 64, 74))
         # self.post_concat_discriminator_layers.summary()
 
-    def create_convolutional_layers(self):
+    def create_convolutional_layers(self, l_channels):
         self.pre_concat_discriminator_layers.add(InputLayer(input_shape=(128, 128, 3)))
         self.pre_concat_discriminator_layers.add(ZeroPadding2D(padding=(1, 1), name="patchd_preconcat_padding1"))
         self.pre_concat_discriminator_layers.add(Conv2D(64, kernel_size=4, strides=2, padding="valid",
                                                         activation='relu', name='patchd_preconcat_conv1'))
         self.pre_concat_discriminator_layers.add(BatchNormalization(name='patchd_preconcat_bn1'))
 
-        self.post_concat_discriminator_layers.add(InputLayer(input_shape=(64, 64, 64 + 10)))
+        self.post_concat_discriminator_layers.add(InputLayer(input_shape=(64, 64, 64 + l_channels)))
         for i in range(1, 4):
             nf_mult = min(2 ** i, 8)
             self.post_concat_discriminator_layers.add(ZeroPadding2D(padding=(1, 1),
@@ -204,8 +204,7 @@ class CAAE(keras.Model):
         self.encoder = Encoder(z_channels)
         self.discriminatorZ = DiscriminatorZ(z_channels)
         self.decoder = Decoder(z_channels + l_channels, gen_channels)
-        # self.discriminatorImg = DiscriminatorImg()
-        self.patchDiscriminator = PatchDiscriminator()
+        self.patchDiscriminator = PatchDiscriminator(l_channels)
 
         # losses
         self.loss_l2 = MeanSquaredError()
