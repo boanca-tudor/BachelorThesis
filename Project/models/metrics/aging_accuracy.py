@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # print(np.nanmean(images51_ages))
 
     age = 55
-    model_path = '../../' + model_paths['base']
+    model_path = '../../' + model_paths['patchwgan']
     images = images41_50
     print(for_more_images(facepp_client, images, model_path, age))
 

@@ -10,7 +10,6 @@ if __name__ == '__main__':
     # training
     model.train(50, dataset_path, 32)
 
-
     # # eval
     # checkpoint_dir = '2023-05-22/50_epochs_UTKFace/'
     # model.load_model(checkpoint_dir)

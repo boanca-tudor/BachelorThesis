@@ -213,7 +213,7 @@ class CAAE(keras.Model):
 
         # optimizers
         self.learning_rate = ExponentialDecay(initial_learning_rate=0.0002,
-                                              decay_steps=dataset_size / 64 * 2,
+                                              decay_steps=dataset_size / 32 * 2,
                                               decay_rate=1.0,
                                               staircase=True)
         self.eg_optimizer = Adam(self.learning_rate, beta_1=0.5)
