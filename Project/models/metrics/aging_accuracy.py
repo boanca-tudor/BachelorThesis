@@ -6,7 +6,7 @@ from skimage.io import imsave
 import numpy as np
 
 from facepp_utils import *
-from models.caae import CAAE
+from models.caae_patchwgan import CAAE
 from models.model_utils import *
 
 

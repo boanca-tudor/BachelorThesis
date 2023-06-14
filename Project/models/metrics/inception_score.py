@@ -8,7 +8,7 @@ from numpy import std
 from numpy import exp
 from keras_vggface.utils import preprocess_input
 
-from models.caae import CAAE
+from models.caae_patchwgan import CAAE
 from models.age_classifier import *
 from skimage.io import imsave
 

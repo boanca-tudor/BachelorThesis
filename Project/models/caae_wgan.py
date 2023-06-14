@@ -6,7 +6,7 @@ from keras.layers import *
 from keras.losses import *
 from keras.optimizers.schedules.learning_rate_schedule import *
 from keras.optimizers.optimizer_v2.adam import *
-from models.model_utils import *
+from model_utils import *
 import time
 from skimage.io import imsave
 import matplotlib.pyplot as plt
@@ -100,7 +100,7 @@ class DiscriminatorZ(keras.Model):
     def __call__(self, x):
         x = self.discriminator_layers(x)
         logit_layer = Activation('sigmoid')
-        return logit_layer(x)
+        return x, logit_layer(x)
 
 
 class DiscriminatorImg(keras.Model):
@@ -127,13 +127,13 @@ class DiscriminatorImg(keras.Model):
         self.post_concat_discriminator_layers.add(InputLayer(input_shape=(64, 64, 16 + l_channels)))
         self.post_concat_discriminator_layers.add(Conv2D(32, kernel_size=2, strides=2, padding='same',
                                                          activation='relu', name='dimg_conv2'))
-        self.post_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn2'))
+        self.pre_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn2'))
         self.post_concat_discriminator_layers.add(Conv2D(64, kernel_size=2, strides=2, padding='same',
                                                          activation='relu', name='dimg_conv3'))
-        self.post_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn3'))
+        self.pre_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn3'))
         self.post_concat_discriminator_layers.add(Conv2D(128, kernel_size=2, strides=2, padding='same',
                                                          activation='relu', name='dimg_conv4'))
-        self.post_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn4'))
+        self.pre_concat_discriminator_layers.add(BatchNormalization(name='dimg_bn4'))
 
     def create_dense_layers(self):
         self.post_concat_discriminator_layers.add(Flatten())
@@ -147,56 +147,12 @@ class DiscriminatorImg(keras.Model):
         x = tf.concat([x, reshaped_age_label], -1)
         x = self.post_concat_discriminator_layers(x)
         logit_layer = Activation('sigmoid')
-        return logit_layer(x)
-
-
-class PatchDiscriminator(keras.Model):
-    def __init__(self, l_channels):
-        super(PatchDiscriminator, self).__init__()
-        self.pre_concat_discriminator_layers = keras.Sequential(name='patchd_preconcat_layers')
-        self.post_concat_discriminator_layers = keras.Sequential(name='patchd_postconcat_layers')
-
-        self.create_convolutional_layers(l_channels)
-
-        self.pre_concat_discriminator_layers.build((1, 128, 128, 3))
-        # self.pre_concat_discriminator_layers.summary()
-
-        self.post_concat_discriminator_layers.build((1, 64, 64, 74))
-        # self.post_concat_discriminator_layers.summary()
-
-    def create_convolutional_layers(self, l_channels):
-        self.pre_concat_discriminator_layers.add(InputLayer(input_shape=(128, 128, 3)))
-        self.pre_concat_discriminator_layers.add(ZeroPadding2D(padding=(1, 1), name="patchd_preconcat_padding1"))
-        self.pre_concat_discriminator_layers.add(Conv2D(64, kernel_size=4, strides=2, padding="valid",
-                                                        activation='relu', name='patchd_preconcat_conv1'))
-        self.pre_concat_discriminator_layers.add(BatchNormalization(name='patchd_preconcat_bn1'))
-
-        self.post_concat_discriminator_layers.add(InputLayer(input_shape=(64, 64, 64 + l_channels)))
-        for i in range(1, 4):
-            nf_mult = min(2 ** i, 8)
-            self.post_concat_discriminator_layers.add(ZeroPadding2D(padding=(1, 1),
-                                                                    name=f"patchd_postconcat_padding{i}"))
-            self.post_concat_discriminator_layers.add(Conv2D(64 * nf_mult + (10 if i == 1 else 0),
-                                                      kernel_size=4, strides=2, use_bias=True,
-                                                             name=f"patchd_postconcat_conv{i}"))
-            self.post_concat_discriminator_layers.add(LeakyReLU(0.2, name=f"patchd_postconcat_lrelu{i}"))
-
-        self.post_concat_discriminator_layers.add(ZeroPadding2D(padding=(1, 1), name=f"patchd_postconcat_padding5"))
-        self.post_concat_discriminator_layers.add(Conv2D(1, kernel_size=4, strides=1, name=f"patchd_postconcat_conv5"))
-
-    def __call__(self, x, ages):
-        x = self.pre_concat_discriminator_layers(x)
-        reshaped_age_label = reshape_age_tensor_to_4d(ages, 64, 64)
-        reshaped_age_label = tf.cast(reshaped_age_label, dtype=tf.float32)
-        x = tf.concat([x, reshaped_age_label], -1)
-        x = self.post_concat_discriminator_layers(x)
-        sigmoid_layer = Activation('sigmoid')
-        return x, sigmoid_layer(x)
+        return x, logit_layer(x)
 
 
 # dataset_size is hardcoded for UTKFace
 class CAAE(keras.Model):
-    def __init__(self, z_channels, l_channels, gen_channels, dataset_size=23708):
+    def __init__(self, z_channels=100, l_channels=10, gen_channels=1024, dataset_size=23708):
         super().__init__()
         self.z_channels = z_channels
         self.l_channels = l_channels
@@ -204,7 +160,7 @@ class CAAE(keras.Model):
         self.encoder = Encoder(z_channels)
         self.discriminatorZ = DiscriminatorZ(z_channels)
         self.decoder = Decoder(z_channels + l_channels, gen_channels)
-        self.patchDiscriminator = PatchDiscriminator(l_channels)
+        self.discriminatorImg = DiscriminatorImg(l_channels)
 
         # losses
         self.loss_l2 = MeanSquaredError()
@@ -213,7 +169,7 @@ class CAAE(keras.Model):
 
         # optimizers
         self.learning_rate = ExponentialDecay(initial_learning_rate=0.0002,
-                                              decay_steps=dataset_size / 32 * 2,
+                                              decay_steps=dataset_size / 64 * 2,
                                               decay_rate=1.0,
                                               staircase=True)
         self.eg_optimizer = Adam(self.learning_rate, beta_1=0.5)
@@ -235,7 +191,7 @@ class CAAE(keras.Model):
 
     # data is image batch + labels
     @tf.function
-    def train_step(self, data, loss_weights=(0, 0.0001, 0.001)):
+    def train_step(self, data, loss_weights=(0, 0.0001, 0.0001)):
         images = data[0]
         labels = data[1]
 
@@ -253,8 +209,8 @@ class CAAE(keras.Model):
 
             # discriminatorZ loss
             z_prior = np.random.uniform(-1, 1, z_images.shape).astype(np.float32)
-            dz_prior_logits = self.discriminatorZ(z_prior)
-            dz_logits = self.discriminatorZ(z_images)
+            dz_prior, dz_prior_logits = self.discriminatorZ(z_prior)
+            dz, dz_logits = self.discriminatorZ(z_images)
             dz_loss_prior = self.loss_bce(dz_prior_logits, tf.ones_like(dz_prior_logits))
             dz_loss = self.loss_bce(dz_logits, tf.zeros_like(dz_logits))
             dz_total_loss = dz_loss + dz_loss_prior
@@ -263,8 +219,8 @@ class CAAE(keras.Model):
             ez_loss = loss_weights[1] * self.loss_bce(dz_logits, tf.ones_like(dz_logits))
 
             # discriminatorImg loss
-            dimg_input, dimg_input_logits = self.patchDiscriminator(images, labels)
-            dimg_output, dimg_output_logits = self.patchDiscriminator(generated, labels)
+            dimg_input, dimg_input_logits = self.discriminatorImg(images, labels)
+            dimg_output, dimg_output_logits = self.discriminatorImg(generated, labels)
 
             dimg_loss = self.discriminator_img_loss(dimg_input, dimg_output)
             gradient_penalty = self.gradient_penalty(images.shape[0], images, generated, labels)
@@ -282,14 +238,14 @@ class CAAE(keras.Model):
         dz_gradient = dz_tape.gradient(dz_total_loss,
                                        self.discriminatorZ.trainable_variables)
         dimg_gradient = dimg_tape.gradient(dimg_total_loss,
-                                           self.patchDiscriminator.trainable_variables)
+                                           self.discriminatorImg.trainable_variables)
 
         self.eg_optimizer.apply_gradients(zip(eg_gradients,
                                           self.encoder.trainable_variables + self.decoder.trainable_variables))
         self.dz_optimizer.apply_gradients(zip(dz_gradient,
                                           self.discriminatorZ.trainable_variables))
         self.dimg_optimizer.apply_gradients(zip(dimg_gradient,
-                                            self.patchDiscriminator.trainable_variables))
+                                            self.discriminatorImg.trainable_variables))
 
         self.eg_tracker.update_state(eg_total_loss)
         self.dz_tracker.update_state(dz_total_loss)
@@ -303,7 +259,7 @@ class CAAE(keras.Model):
 
         with tf.GradientTape() as gp_tape:
             gp_tape.watch(interpolated)
-            pred = self.patchDiscriminator(interpolated, ages)
+            pred = self.discriminatorImg(interpolated, ages)
 
         grads = gp_tape.gradient(pred, [interpolated])[0]
         norm = tf.sqrt(tf.reduce_sum(tf.square(grads), axis=[1, 2, 3]))
@@ -321,6 +277,7 @@ class CAAE(keras.Model):
         return -tf.reduce_mean(fake_img)
 
     def train(self, epochs, dataset_path, batch_size, save="all", previous_path=None):
+        print("Started training")
         image_paths = list_full_paths(dataset_path)
 
         eg_losses = []
@@ -332,8 +289,8 @@ class CAAE(keras.Model):
         checkpoint = tf.train.Checkpoint(
             encoder=self.encoder,
             decoder=self.decoder,
-            discriminator_z=self.discriminatorZ,
-            patch_discriminator=self.patchDiscriminator,
+            discriminatorZ=self.discriminatorZ,
+            discriminatorImg=self.discriminatorImg,
             eg_optimizer=self.eg_optimizer,
             dz_optimizer=self.dz_optimizer,
             dimg_optimizer=self.dimg_optimizer,
@@ -351,6 +308,7 @@ class CAAE(keras.Model):
             ending_index = batch_size
             while ending_index <= len(image_paths):
                 images, ages = read_images(image_paths[starting_index: ending_index])
+                print(f'{epoch + 1} : {starting_index} - {ending_index}')
                 self.train_step((tf.convert_to_tensor(images), tf.convert_to_tensor(ages)))
                 starting_index = ending_index
                 if ending_index != len(image_paths):
@@ -368,8 +326,7 @@ class CAAE(keras.Model):
             eg_losses.append(self.eg_tracker.result().numpy())
             dz_losses.append(self.dz_tracker.result().numpy())
             dimg_losses.append(self.dimg_tracker.result().numpy())
-
-            print(f"Epoch {epoch + 1} - Elapsed time : {time.time() - start}")
+            print(f"Elapsed time : {time.time() - start}")
 
         plt.plot(eg_losses, label='EG Losses')
         plt.plot(dz_losses, label='DZ Losses')
@@ -409,8 +366,8 @@ class CAAE(keras.Model):
         checkpoint = tf.train.Checkpoint(
             encoder=self.encoder,
             decoder=self.decoder,
-            discriminator_z=self.discriminatorZ,
-            patch_discriminator=self.patchDiscriminator,
+            discriminatorZ=self.discriminatorZ,
+            discriminatorImg=self.discriminatorImg,
             eg_optimizer=self.eg_optimizer,
             dz_optimizer=self.dz_optimizer,
             dimg_optimizer=self.dimg_optimizer,

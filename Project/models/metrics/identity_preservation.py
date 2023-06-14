@@ -4,7 +4,7 @@ from facepplib.exceptions import ResourceAttrError
 from skimage.io import imsave
 
 from facepp_utils import *
-from models.caae import CAAE
+from models.caae_patchwgan import CAAE
 from models.model_utils import *
 
 

@@ -1,14 +1,11 @@
-from models.caae import *
-from models.model_utils import *
+from models.caae_patch import *
 
 if __name__ == '__main__':
-    dataset_path = 'data/UTKFace/'
-    model = CAAE(z_channels=100,
-                 l_channels=10,
-                 gen_channels=1024,
-                 dataset_size=len(list_full_paths(dataset_path)))
+    dataset_path = '../data/UTKFace/'
+    model = CAAE()
+
     # training
-    model.train(50, dataset_path, 32)
+    model.train(50, dataset_path, 64)
 
     # # eval
     # checkpoint_dir = '2023-05-22/50_epochs_UTKFace/'

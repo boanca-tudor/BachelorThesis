@@ -15,7 +15,7 @@ from api.controller.user.upload import *
 from api.repository.image_holder import ImageHolder
 from api.model.database import init_db
 from config_utils import *
-from models.caae import CAAE
+from models.caae_patchwgan import CAAE
 
 
 model = CAAE(z_channels=100,
