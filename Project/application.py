@@ -21,9 +21,7 @@ from models.caae import CAAE
 model = CAAE(z_channels=100,
              l_channels=10,
              gen_channels=1024)
-checkpoint_dir = '2023-05-22/50_epochs_UTKFace/'
-model.load_for_eval(checkpoint_dir)
-
+load_model(model, 'flask_config.ini')
 
 app = Flask(__name__)
 config_app(app, "flask_config.ini")

@@ -36,18 +36,6 @@ if __name__ == "__main__":
     EPOCHS = 20
     INITIAL_LR = 0.001
 
-    # ages, images = get_from_images("data/MiniCACD/")
-
-    # age, image_paths = get_cacd_meta("data/CACD2000/celebrity2000_meta.mat")
-
-    # images, ages = load_dataset()
-    #
-    # ages = np.asarray(ages)
-    # images = np.asarray(images)
-    #
-    # np.save("data/imdb/ages", ages)
-    # np.save("data/imdb/images", images)
-
     ages = np.load("data/imdb/ages.npy")
     images = np.load("data/imdb/images.npy")
 
@@ -75,10 +63,6 @@ if __name__ == "__main__":
         loss=["categorical_crossentropy"],
         metrics=['accuracy']
     )
-
-    # image = load_image("test3.jpg")
-    # images = preprocess_input([image])
-    # print(np.argmax(model.predict(np.asarray(images))))
 
     model.load_weights('weights.hdf5')
 

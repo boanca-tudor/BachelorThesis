@@ -24,6 +24,17 @@ def read_jwt_attributes(file_path):
     return jwt_attributes
 
 
+def load_model(model, file_path):
+    config_string = 'MODEL'
+    config = configparser.ConfigParser()
+    config.read(file_path)
+    model_attributes = {}
+    for key in config[config_string]:
+        model_attributes[key] = config[config_string][key]
+
+    model.load_for_eval(model_attributes['path'])
+
+
 def parse_date(date: str):
     date_parts = date.split(' ')
 

@@ -1,9 +1,7 @@
 import time
 
-import tensorflow as tf
 from facepplib.exceptions import ResourceAttrError
 from skimage.io import imsave
-import numpy as np
 
 from facepp_utils import *
 from models.caae import CAAE
@@ -45,24 +43,17 @@ def for_more_images(facepp_client, image_paths, model_path, age):
     model = load_model(model_path)
 
     confidences = []
-    thresholds = []
     for image in image_paths:
         confidence, threshold = for_one_image(facepp_client, image, model, age)
         time.sleep(.3)
 
         confidences.append(confidence)
-        thresholds.append(threshold)
-
-    return np.nanmean(np.asarray(confidences)), np.nanmean(np.asarray(thresholds))
+    return np.nanmean(np.asarray(confidences))
 
 
 if __name__ == "__main__":
     facepp_client = create_facepp_client('face++_config.ini')
     model_paths = read_caae_paths('face++_config.ini')
-
-    # conf, thresholds = for_one_image(facepp_client, 'metric_images/test.jpg', model_paths['patchgan'], 40)
-    # print(conf)
-    # print(thresholds["1e-5"])
 
     count = 1000
     dataset_url = '../../data/UTKFace'

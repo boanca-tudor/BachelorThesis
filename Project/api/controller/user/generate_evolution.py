@@ -24,7 +24,7 @@ class GenerateEvolutionEndpoint(Resource):
         for age in ages:
             results.append(tf.squeeze(self.__model.eval([image_tensor, age])).numpy())
 
-        results = np.concatenate(results, axis=1)
+        results = np.concatenate(results, axis=0)
         imsave("result.jpg", (((results + 1) / 2) * 255).astype(np.uint8))
         image_data = BytesIO(open("result.jpg", "rb").read())
         response = make_response(image_data.getvalue())

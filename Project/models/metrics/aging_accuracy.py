@@ -57,31 +57,13 @@ if __name__ == "__main__":
     facepp_client = create_facepp_client('face++_config.ini')
     model_paths = read_caae_paths('face++_config.ini')
 
-    # images21_30 = np.load('21-30.npy')
-    # images31_40 = np.load('31-40.npy')
+    images21_30 = np.load('21-30.npy')
+    images31_40 = np.load('31-40.npy')
     images41_50 = np.load('41-50.npy')
-    # images51 = np.load('51+.npy')
-    #
-    # images51_ages = []
-    # for image in images51:
-    #     images51_ages.append(for_one_image(facepp_client, image, None, None)['value'])
-    #     time.sleep(.5)
-    #
-    # print(np.nanmean(images51_ages))
+    images51 = np.load('51+.npy')
 
     age = 55
     model_path = '../../' + model_paths['patchwgan']
     images = images41_50
     print(for_more_images(facepp_client, images, model_path, age))
-
-    # image_paths = list_full_paths(dataset_url)
-    # np.random.shuffle(image_paths)
-    # image_paths = image_paths[:count]
-    #
-    # ages = create_all_ages()
-    # results = []
-    # for age in ages:
-    #     results.append(for_more_images(facepp_client, image_paths, '../../' + model_paths['wgan'], age))
-    # print(ages)
-    # print(results)
 
